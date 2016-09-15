@@ -147,7 +147,7 @@ You may also notice that I have added a small custom handler mechanism, allowing
 
 Some other declarations are needed:
 
-### 5.2.1. isr.h
+### 5.2.1. `isr.h`
 
 ``` c
 // A few defines to make life a little easier
@@ -162,7 +162,7 @@ typedef void (*isr_t)(registers_t);
 void register_interrupt_handler(u8int n, isr_t handler);
 ```
 
-### 5.2.2. isr.c
+### 5.2.2. `isr.c`
 
 ``` c
 isr_t interrupt_handlers[256];

@@ -331,7 +331,7 @@ idt_flush:
    lidt [eax]        ; Load the IDT pointer.
    ret
 ```
-### 4.4.3. interrupt.s
+### 4.4.3. `interrupt.s`
 
 Great! We've got code that will tell the CPU where to find our interrupt handlers - but we haven't written any yet!
 

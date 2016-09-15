@@ -11,9 +11,13 @@ We need a base from which to design and make our kernel. Here I will be assuming
 My directory is laid out as follows:
 
 ```
-tutorial
+osdev
  |
  +-- src
+ |
+ +-- scripts
+ |
+ +-- toolchain
  |
  +-- docs
 ```
@@ -22,7 +26,7 @@ All your source files will go in src, and all your documentation (you do write d
 
 ## 1.2. Compiling
 
-The examples in this tutorial should compile successfully with the GNU toolchain (gcc, ld, gas, etc). The assembly examples are written in intel syntax, which is (my personal opinion) a much more human-readable syntax than the AT&T syntax that GNU AS uses. To assemble these, you will need the [Netwide Assembler](http://web.archive.org/web/20140118193432/http://nasm.sourceforge.net/).
+The examples in this tutorial should compile successfully with the GNU toolchain (gcc, ld, gas, etc). The assembly examples are written in intel syntax, which is (my personal opinion) a much more human-readable syntax than the AT&T syntax that GNU AS uses. To assemble these, you will need the [Netwide Assembler](http://web.archive.org/web/20140118193432/http://nasm.sourceforge.net/) (or NASM).
 
 This tutorial is not a bootloader tutorial. We will be using [GRUB](http://web.archive.org/web/20140118193432/http://www.gnu.org/software/grub) to load our kernel. To do this, we need a floppy disk image with GRUB preloaded onto it. There are [tutorials](http://web.archive.org/web/20140118193432/http://www.jamesmolloy.co.uk/tutorial_html/tutorials) to do this, but, happily, I have made a standard image, which can be found [here](http://web.archive.org/web/20140118193432/http://www.jamesmolloy.co.uk/downloads/floppy.img). This goes in your 'tutorial' (or whatever you named it) directory.
 
@@ -30,25 +34,17 @@ This tutorial is not a bootloader tutorial. We will be using [GRUB](http://web.a
 
 There is no alternative for bare hardware as a testbed system. Unfortunately, bare hardware is pretty pants at telling you where things went wrong (but of course, you're going to write completely bug-free code first time, aren't you?). Enter Bochs. Bochs is an open-source x86-64 emulator. When things go completely awry, bochs will tell you, and store the processor state in a logfile, which is extremely useful. Also it can be run and rebooted much faster than a real machine. My examples will be made to run well on bochs.
 
-## 1.4. Bochs
+## 1.4. QEMU
 
-In order to run bochs, you are going to need a bochs configuration file (bochsrc.txt). Coincidentally, a sample one is included below!
+As stated in the Introduction, we will be using QEMU as our testbed. It is as easy as calling one command and supplying our kernel binary. We will be creating and supplying it with an ISO file later on, however.
 
-Take care with the locations of the bios files. These seem to change between installations, and if you made bochs from source it is very likely you don't even have them. Google their filenames, you can get them from the official bochs site among others.
+Depending on the distribution of Linux that you are running, you can install QEMU through your package manager. In my case it is Ubuntu, so I can install it like this:
 
-```
-megs: 32
-romimage: file=/usr/share/bochs/BIOS-bochs-latest, address=0xf0000
-vgaromimage: /usr/share/bochs/VGABIOS-elpin-2.40
-floppya: 1_44=/dev/loop0, status=inserted
-boot: a
-log: bochsout.txt
-mouse: enabled=0
-clock: sync=realtime
-cpu: ips=500000
+``` bash
+sudo apt-get install qemu qemu-system qemu-system-x86
 ```
 
-This will make bochs emulate a 32MB machine with a clock speed similar to a 350MHz PentiumII. The instructions per second can be cranked up - I prefer a slower emulation speed, simply so I can see what is going on if lots of text is being scrolled.
+As you may have noticed, I installed 3 packages. These packages will give us a full environment.
 
 ## 1.5. Useful scripts
 
@@ -78,6 +74,7 @@ link:
 
 .s.o:
 	nasm $(ASFLAGS) $<
+
 ```
  
 This Makefile will compile every file in SOURCES, then link them together into one ELF binary, 'kernel'. It uses a linker script, 'link.ld' to do this:
@@ -116,14 +113,15 @@ SECTIONS
   }
 
   end = .; _end = .; __end = .;
-}
 ```
 
 This script tells LD how to set up our kernel image. Firstly it tells LD that the start location of our binary should be the symbol 'start'. It then tells LD that the .text section (that's where all your code goes) should be first, and should start at 0x100000 (1MB). The .data (initialised static data) and the .bss (uninitialised static data) should be next, and each should be page-aligned (ALIGN(4096)). Linux GCC also adds in an extra data section: .rodata. This is for read-only initialised data, such as constants. For simplicity we simply bundle this in with the .data section.
 
-### 1.5.3. update_image.sh
+### 1.5.3. `update_image.sh`
 
-A nice little script that will poke your new kernel binary into the floppy image file (This assumes you have made a directory /mnt). Note: you will need /sbin in your $PATH to use losetup.
+#### `TODO`: Obsolete; remove.
+
+A nice little script that will poke your new kernel binary into the floppy image file (This assumes you have made a directory /mnt). Note: you will need /sbin in your \$PATH to use losetup.
 
 ``` bash
 #!/bin/bash
@@ -135,20 +133,50 @@ sudo umount /dev/loop0
 sudo losetup -d /dev/loop0
 ```
 
-### 1.5.4. run_bochs.sh
+### 1.5.5. `build_toolchain.sh` `WIP`
 
-This script will setup a loopback device, run bochs on it, then disconnect it.
+##### Skip to`vagrant` if you want to avoid building a toolchain
+
+Since we are targetting, initially at least, the `i386` (32-bit) architecture, we will need a toolchain capable of building 32-bit binaries. If you are like me, you are running a 64-bit version of your operating system, thus lacking the ability to build such binaries.
+
+Hence, we need a script that will download the sources and, build them and install them in a convenient spot for use during the build process.
+
+The sources that we need are the following:
+
+* [binutils-2.27](http://ftp.gnu.org/gnu/binutils/binutils-2.27.tar.bz2)
+* [gcc-6.2.0](http://ftp.gnu.org/gnu/gcc/gcc-6.2.0/gcc-6.2.0.tar.bz2)
+* [nasm-2.12.02](http://www.nasm.us/pub/nasm/releasebuilds/2.12.02/nasm-2.12.02.tar.xz)
+* [mpfr-3.1.4](http://www.mpfr.org/mpfr-3.1.4/mpfr-3.1.4.tar.xz)
+* [mpc-1.0.3](http://www.multiprecision.org/mpc/download/mpc-1.0.3.tar.gz)
+* [gmp-6.1.1](http://ftp.gnu.org/gnu/gmp/gmp-6.1.1.tar.xz)
+
+The last three are required by GCC. The process that we will follow is similar to that described in the [Linux From Scratch](http://linuxfromscratch.org/lfs/view/development/index.html) book.
+
+The complete script can be seen [here](https://github.com/conmarap/dart/blob/master/scripts/toolchain.sh).
+
+#### `TODO` Complete!
+
+### 1.5.5. Vagrant
+
+You may also download and maintain a Vagrant virtual machine instead of building your own toolchain, although it is still a good practice to do so.
+
+[Vagrant](https://www.vagrantup.com/) is a virtual machine that aims on lightweightness and portable environments. It is based on Oracle's [VirtualBox](https://www.virtualbox.org/wiki/Downloads). The main advantage of Vagrant is that it is easy to directly access the VM through your terminal and that no UI is needed to access it; just `SSH`!
 
 ``` bash
-#!/bin/bash
-
-# run_bochs.sh
-# mounts the correct loopback device, runs bochs, then unmounts.
-
-sudo /sbin/losetup /dev/loop0 floppy.img
-sudo bochs -f bochsrc.txt
-sudo /sbin/losetup -d /dev/loop0
+vagrant init ubuntu/trusty32
+vagrant up --provider virtualbox
 ```
+
+Once set up, you can SSH into it and install the build tools:
+
+``` bash
+sudo apt-get install build-essentials
+```
+
+1. Box [Ubuntu Trusty 32](https://atlas.hashicorp.com/ubuntu/boxes/trusty32)
+
+****
+
 This set of tutorials is very practical in nature. The theory is given in every section, but the majority of the tutorial deals with getting dirty and implementing the abstract ideas and mechanisms discussed everywhere. It is important to note that the kernel implemented is a teaching kernel. I know that the algorithms used are not the most space efficient or optimal. They normally are chosen for their simplicity and ease of understanding.The aim of this is to get you into the correct mindset, and to give you a grounding upon which you can work. The kernel given is extensible, and good algorithms can easily be plugged in.
 
 If you have problems with the theory, there are plenty of sites that would be delighted to help you (most questions on OSDev forums are concerned with implementation - *"My gets function doesn't work! help!"* - A theory question is a breath of fresh air to many ;) ). Links can be found at the bottom of the page.
