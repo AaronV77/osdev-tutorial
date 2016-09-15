@@ -55,7 +55,8 @@ This will make bochs emulate a 32MB machine with a clock speed similar to a 350M
 We are going to be doing several things very often - making (compiling and linking) our project, and transferring the resulting kernel binary to our floppy disk image.
 
 ### 1.5.1. Makefile
-```
+
+``` makefile
 # Makefile for JamesM's kernel tutorials.
 # The C and C++ rules are already setup by default.
 # The only one that needs changing is the assembler 
@@ -83,7 +84,7 @@ This Makefile will compile every file in SOURCES, then link them together into o
 
 ### 1.5.2. Link.ld
 
-```
+``` linker
 /* Link.ld -- Linker script for the kernel - ensure everything goes in the */
 /*            Correct place.  */
 /*            Original file taken from Bran's Kernel Development */
@@ -124,7 +125,7 @@ This script tells LD how to set up our kernel image. Firstly it tells LD that th
 
 A nice little script that will poke your new kernel binary into the floppy image file (This assumes you have made a directory /mnt). Note: you will need /sbin in your $PATH to use losetup.
 
-```
+``` bash
 #!/bin/bash
 
 sudo losetup /dev/loop0 floppy.img
@@ -138,7 +139,7 @@ sudo losetup -d /dev/loop0
 
 This script will setup a loopback device, run bochs on it, then disconnect it.
 
-```
+``` bash
 #!/bin/bash
 
 # run_bochs.sh
