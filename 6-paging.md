@@ -44,7 +44,7 @@ Paging works by splitting the virtual address space into blocks called pages, wh
 ### 6.2.1. Page entries
 
 <center>
-	![Page table entry format](paging_pte.png "Page table entry format")
+	![Page table entry format](assets/paging_pte.png "Page table entry format")
 </center>
 
 Each process normally has a different set of page mappings, so that virtual memory spaces are independent of each other. In the x86 architecture (32-bit) pages are fixed at 4KB in size. Each page has a corresponding descriptor word, which tells the processor which frame it is mapped to. Note that because pages and frames must be aligned on 4KB boundaries (4KB being 0x1000 bytes), the least significant 12 bits of the 32-bit word are always zero. The architecture takes advantage of this by using them to store information about the page, such as whether it is present, whether it is kernel-mode or user-mode etc. The layout of this word is in the picture on the right.
