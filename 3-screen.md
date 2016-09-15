@@ -213,7 +213,7 @@ void monitor_put(char c)
    // Handle any other printable character.
    else if(c >= ' ')
    {
-       location = video_memory + (cursor_y*80 + cursor_x);
+       location = video_memory + (cursor_y * 80 + cursor_x);
        *location = c | attribute;
        cursor_x++;
    }
@@ -236,7 +236,7 @@ void monitor_put(char c)
 See? It's pretty simple! The bit that actually does the writing is here:
 
 ``` c
-location = video_memory + (cursor_y*80 + cursor_x);
+location = video_memory + (cursor_y * 80 + cursor_x);
 *location = c | attribute;
 ```
 
